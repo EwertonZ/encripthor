@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: encripthor123
       POSTGRES_DB: encripthor
     ports:
-      - "5432:5432"
+      - "5433:5432"  # 5433 no host para evitar conflito com PostgreSQL local
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -34,8 +34,6 @@ services:
     container_name: encripthor-client
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
     depends_on:
       - socket-server
 
