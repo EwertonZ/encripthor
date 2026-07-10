@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { Player, Room, GameScore } from '@/types/game';
+import { getRoomData } from '@/lib/store';
 
 export interface GameState {
   room: Room | null;
@@ -43,6 +44,18 @@ export function useGame(socket: Socket | null) {
 
   useEffect(() => {
     if (!socket) return;
+
+    // Restaurar dados da sala salvos no store antes da navegação
+    const savedData = getRoomData();
+    if (savedData) {
+      setState((prev) => ({
+        ...prev,
+        room: savedData.room,
+        isLeader: savedData.isLeader,
+        myPlayerId: socket.id ?? null,
+        gamePhase: 'waiting' as const,
+      }));
+    }
 
     const onRoomJoined = (data: { room: Room; isLeader: boolean }) => {
       setState((prev) => ({

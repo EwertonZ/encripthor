@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { connectSocket, getSocket } from '@/lib/socket';
+import { Room } from '@/types/game';
+import { setRoomData } from '@/lib/store';
 
 export default function TelaInicial() {
   const router = useRouter();
@@ -25,13 +27,15 @@ export default function TelaInicial() {
       setLoading(false);
     };
 
-    const handleRoomCreated = (data: { roomId: string }) => {
+    const handleRoomCreated = (data: { roomId: string; room: Room }) => {
       setLoading(false);
+      setRoomData({ room: data.room, isLeader: true });
       router.push(`/sala/${data.roomId}`);
     };
 
-    const handleRoomJoined = (data: { room: { id: string } }) => {
+    const handleRoomJoined = (data: { room: Room; isLeader: boolean }) => {
       setLoading(false);
+      setRoomData({ room: data.room, isLeader: data.isLeader });
       router.push(`/sala/${data.room.id}`);
     };
 
