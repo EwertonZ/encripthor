@@ -3,9 +3,13 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import {
+  getRooms,
   createRoomAndJoin,
   joinRoomById,
   leaveRoomAndElectLeader,
+  toggleReadyStatus,
+  validateStartGame,
+  kickPlayerFromRoom,
   serializeRoom,
 } from './rooms';
 
@@ -74,7 +78,55 @@ io.on('connection', (socket) => {
     console.log(`🚪 Jogador saiu da sala ${normalizedId}`);
   });
 
+  socket.on('toggle_ready', ({ roomId }) => {
+    const result = toggleReadyStatus(roomId, socket.id);
+    if ('error' in result) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    const normalizedId = roomId.toUpperCase();
+    io.to(normalizedId).emit('player_ready', {
+      playerId: result.playerId,
+      ready: result.ready,
+    });
+  });
+
+  socket.on('start_game', ({ roomId }) => {
+    const result = validateStartGame(roomId, socket.id);
+    if ('error' in result) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    const normalizedId = roomId.toUpperCase();
+    io.to(normalizedId).emit('game_starting', {});
+    console.log(`🎮 Jogo iniciando na sala ${normalizedId}`);
+  });
+
+  socket.on('kick_player', ({ roomId, playerId }) => {
+    const result = kickPlayerFromRoom(roomId, socket.id, playerId);
+    if ('error' in result) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    const normalizedId = roomId.toUpperCase();
+    io.to(normalizedId).emit('player_kicked', { playerId: result.targetId });
+    const kickedSocket = io.sockets.sockets.get(result.targetId);
+    kickedSocket?.leave(normalizedId);
+    console.log(`👢 Jogador ${result.targetId} expulso da sala ${normalizedId}`);
+  });
+
   socket.on('disconnect', () => {
+    // Limpar salas ao desconectar
+    for (const [roomId, room] of getRooms()) {
+      if (room.players.has(socket.id)) {
+        const result = leaveRoomAndElectLeader(roomId, socket.id);
+        io.to(roomId).emit('player_left', {
+          playerId: result.playerId,
+          newLeaderId: result.newLeaderId,
+        });
+        console.log(`🔴 ${socket.id} removido da sala ${roomId} por desconexão`);
+      }
+    }
     console.log(`🔴 Jogador desconectado: ${socket.id}`);
   });
 });
