@@ -12,7 +12,5 @@ export function setRoomData(data: RoomStoreData): void {
 }
 
 export function getRoomData(): RoomStoreData | null {
-  const data = roomData;
-  roomData = null; // clear after reading
-  return data;
+  return roomData;
 }

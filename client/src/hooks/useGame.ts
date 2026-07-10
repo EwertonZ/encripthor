@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { Player, Room, GameScore } from '@/types/game';
 import { getRoomData } from '@/lib/store';
@@ -41,20 +41,24 @@ const initialState: GameState = {
 
 export function useGame(socket: Socket | null) {
   const [state, setState] = useState<GameState>(initialState);
+  const restoredRef = useRef(false);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Restaurar dados da sala salvos no store antes da navegação
-    const savedData = getRoomData();
-    if (savedData) {
-      setState((prev) => ({
-        ...prev,
-        room: savedData.room,
-        isLeader: savedData.isLeader,
-        myPlayerId: socket.id ?? null,
-        gamePhase: 'waiting' as const,
-      }));
+    // Restaurar dados da sala salvos no store (só na 1ª execução, mesmo com StrictMode)
+    if (!restoredRef.current) {
+      const savedData = getRoomData();
+      if (savedData) {
+        setState((prev) => ({
+          ...prev,
+          room: savedData.room,
+          isLeader: savedData.isLeader,
+          myPlayerId: socket.id ?? null,
+          gamePhase: 'waiting' as const,
+        }));
+      }
+      restoredRef.current = true;
     }
 
     const onRoomJoined = (data: { room: Room; isLeader: boolean }) => {
