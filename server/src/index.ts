@@ -2,6 +2,12 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import {
+  createRoomAndJoin,
+  joinRoomById,
+  leaveRoomAndElectLeader,
+  serializeRoom,
+} from './rooms';
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
@@ -18,6 +24,55 @@ const PORT = process.env.PORT || 3001;
 
 io.on('connection', (socket) => {
   console.log(`🟢 Jogador conectado: ${socket.id}`);
+
+  socket.on('create_room', ({ nickname }) => {
+    if (!nickname || nickname.trim().length === 0) {
+      socket.emit('error', { message: 'Nickname inválido' });
+      return;
+    }
+    const { roomId, room } = createRoomAndJoin(socket.id, nickname.trim());
+    socket.join(roomId);
+    socket.emit('room_created', { roomId, room: serializeRoom(room) });
+    console.log(`🏠 Sala ${roomId} criada por ${nickname}`);
+  });
+
+  socket.on('join_room', ({ roomId, nickname }) => {
+    if (!nickname || nickname.trim().length === 0) {
+      socket.emit('error', { message: 'Nickname inválido' });
+      return;
+    }
+    const result = joinRoomById(roomId, socket.id, nickname.trim());
+    if ('error' in result) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    socket.join(roomId.toUpperCase());
+    socket.emit('room_joined', {
+      room: serializeRoom(result.room),
+      isLeader: result.isLeader,
+    });
+    socket.to(roomId.toUpperCase()).emit('player_joined', {
+      player: {
+        id: socket.id,
+        nickname: nickname.trim(),
+        ready: false,
+        hasGuessedCorrectly: false,
+      },
+    });
+    console.log(`🚪 ${nickname} entrou na sala ${roomId}`);
+  });
+
+  socket.on('leave_room', ({ roomId }) => {
+    const normalizedId = roomId.toUpperCase();
+    const result = leaveRoomAndElectLeader(normalizedId, socket.id);
+    socket.leave(normalizedId);
+    socket.emit('room_left', {});
+    socket.to(normalizedId).emit('player_left', {
+      playerId: result.playerId,
+      newLeaderId: result.newLeaderId,
+    });
+    console.log(`🚪 Jogador saiu da sala ${normalizedId}`);
+  });
 
   socket.on('disconnect', () => {
     console.log(`🔴 Jogador desconectado: ${socket.id}`);

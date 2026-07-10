@@ -93,7 +93,7 @@ export function joinRoomById(
 }
 
 export function toggleReadyStatus(roomId: string, socketId: string): { playerId: string; ready: boolean } | { error: string } {
-  const room = rooms.get(roomId);
+  const room = rooms.get(roomId.toUpperCase());
   if (!room) return { error: 'Sala não encontrada' };
   const player = room.players.get(socketId);
   if (!player) return { error: 'Jogador não está na sala' };
@@ -104,7 +104,7 @@ export function toggleReadyStatus(roomId: string, socketId: string): { playerId:
 }
 
 export function validateStartGame(roomId: string, socketId: string): { success: true } | { error: string } {
-  const room = rooms.get(roomId);
+  const room = rooms.get(roomId.toUpperCase());
   if (!room) return { error: 'Sala não encontrada' };
   if (socketId !== room.leaderId) return { error: 'Apenas o líder pode iniciar' };
   if (room.players.size < 2) return { error: 'Mínimo de 2 jogadores' };
@@ -120,7 +120,7 @@ export function kickPlayerFromRoom(
   socketId: string,
   targetId: string
 ): { targetId: string } | { error: string } {
-  const room = rooms.get(roomId);
+  const room = rooms.get(roomId.toUpperCase());
   if (!room) return { error: 'Sala não encontrada' };
   if (socketId !== room.leaderId) return { error: 'Apenas o líder pode expulsar' };
   if (!room.players.has(targetId)) return { error: 'Jogador não encontrado' };
@@ -134,7 +134,7 @@ export function leaveRoomAndElectLeader(
   roomId: string,
   socketId: string
 ): { playerId: string; newLeaderId: string | null } {
-  const room = rooms.get(roomId);
+  const room = rooms.get(roomId.toUpperCase());
   if (!room) return { playerId: socketId, newLeaderId: null };
 
   room.players.delete(socketId);
