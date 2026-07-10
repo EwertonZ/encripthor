@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id        String    @id @default(cuid())
+  nickname  String
+  socketId  String?
+  createdAt DateTime  @default(now())
+
+  games   GamePlayer[]
+  rounds  Round[]     @relation("WordMaster")
+  guesses Guess[]
+}
+
+model Game {
+  id        String     @id @default(cuid())
+  roomId    String
+  status    GameStatus @default(WAITING)
+  maxRounds Int        @default(5)
+  createdAt DateTime   @default(now())
+  endedAt   DateTime?
+
+  players GamePlayer[]
+  rounds  Round[]
+}
+
+model GamePlayer {
+  id       String @id @default(cuid())
+  gameId   String
+  playerId String
+  score    Int    @default(0)
+
+  game   Game   @relation(fields: [gameId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([gameId, playerId])
+}
+
+model Round {
+  id           String      @id @default(cuid())
+  gameId       String
+  roundNumber  Int
+  wordMasterId String
+  word         String?
+  status       RoundStatus @default(CHOOSING)
+  startedAt    DateTime    @default(now())
+  endedAt      DateTime?
+
+  game      Game    @relation(fields: [gameId], references: [id])
+  guesses   Guess[]
+  wordMaster Player @relation("WordMaster", fields: [wordMasterId], references: [id])
+}
+
+model Guess {
+  id        String   @id @default(cuid())
+  roundId   String
+  playerId  String
+  word      String
+  correct   Boolean  @default(false)
+  guessedAt DateTime @default(now())
+
+  round  Round  @relation(fields: [roundId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([roundId, playerId])
+}
+
+enum GameStatus {
+  WAITING
+  PLAYING
+  FINISHED
+}
+
+enum RoundStatus {
+  CHOOSING
+  GUESSING
+  FINISHED
+}

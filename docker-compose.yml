@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: encripthor-db
+    environment:
+      POSTGRES_USER: encripthor
+      POSTGRES_PASSWORD: encripthor123
+      POSTGRES_DB: encripthor
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U encripthor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  socket-server:
+    build: ./server
+    container_name: encripthor-server
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://encripthor:encripthor123@postgres:5432/encripthor
+      PORT: 3001
+      CLIENT_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nextjs:
+    build: ./client
+    container_name: encripthor-client
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
+    depends_on:
+      - socket-server
+
+volumes:
+  pgdata:
