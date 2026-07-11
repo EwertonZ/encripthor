@@ -108,7 +108,9 @@ export function validateStartGame(roomId: string, socketId: string): { success: 
   if (!room) return { error: 'Sala não encontrada' };
   if (socketId !== room.leaderId) return { error: 'Apenas o líder pode iniciar' };
   if (room.players.size < 2) return { error: 'Mínimo de 2 jogadores' };
-  const allReady = Array.from(room.players.values()).every((p) => p.ready);
+  const allReady = Array.from(room.players.values())
+    .filter((p) => p.id !== room.leaderId)
+    .every((p) => p.ready);
   if (!allReady) return { error: 'Nem todos estão prontos' };
 
   room.status = 'choosing_word';

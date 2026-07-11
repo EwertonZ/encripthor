@@ -33,7 +33,9 @@ export default function SalaEspera({ roomId, socket, room, myPlayerId, isLeader 
     socket.emit('kick_player', { roomId, playerId });
   }, [socket, roomId]);
 
-  const allReady = room.players.length >= 2 && room.players.every((p) => p.ready);
+  const allReady = room.players.length >= 2 && room.players
+    .filter((p) => p.id !== room.leaderId)
+    .every((p) => p.ready);
   const canStart = isLeader && allReady;
   const myPlayer = room.players.find((p) => p.id === myPlayerId);
   const amIReady = myPlayer?.ready ?? false;
@@ -128,7 +130,7 @@ export default function SalaEspera({ roomId, socket, room, myPlayerId, isLeader 
               >
                 {room.players.length < 2
                   ? 'Aguardando jogadores...'
-                  : !room.players.every((p) => p.ready)
+                  : !allReady
                   ? 'Aguardando todos ficarem prontos...'
                   : '🎮 Iniciar Jogo'}
               </button>
