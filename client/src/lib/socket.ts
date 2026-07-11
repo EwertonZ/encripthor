@@ -1,15 +1,16 @@
 import { io, Socket } from 'socket.io-client';
 
-// Usar o hostname da página carregada para conectar no servidor Socket.IO
-// Isso permite acesso de outros dispositivos na mesma rede local
+// Conectar via mesma origem da página (Next.js faz proxy para o servidor)
+// Isso permite acesso de outros dispositivos sem precisar de porta separada
 function getSocketUrl(): string {
   if (process.env.NEXT_PUBLIC_SOCKET_URL) {
     return process.env.NEXT_PUBLIC_SOCKET_URL;
   }
+  // Conectar no mesmo hostname/porta da página (Next.js faz proxy)
   if (typeof window !== 'undefined') {
-    return `http://${window.location.hostname}:3001`;
+    return window.location.origin;
   }
-  return 'http://localhost:3001';
+  return 'http://localhost:3000';
 }
 
 let socket: Socket | null = null;
@@ -18,7 +19,8 @@ export function getSocket(): Socket {
   if (!socket) {
     socket = io(getSocketUrl(), {
       autoConnect: false,
-      transports: ['websocket', 'polling'],
+      // Apenas polling (Next.js proxy não suporta WebSocket upgrade)
+      transports: ['polling'],
     });
   }
   return socket;
