@@ -24,7 +24,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Animações */
+/* ── Animações ── */
 
 @keyframes letter-pop {
   0% {
@@ -117,4 +117,35 @@ body {
 
 .shake {
   animation: shake 0.4s ease-in-out;
+}
+
+/* Confete para fim de jogo */
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); }
+  100% { transform: translateY(100vh) rotate(720deg); }
+}
+
+.confetti-piece {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  animation: confetti-fall 3s linear forwards;
+}
+
+/* ── Acessibilidade: reduzir movimento ── */
+@media (prefers-reduced-motion: reduce) {
+  .letter-card,
+  .letter-float,
+  .word-reveal,
+  .timer-critical,
+  .game-phase-enter,
+  .glow-pulse,
+  .shake,
+  .confetti-piece {
+    animation: none !important;
+  }
+
+  .animate-pulse {
+    animation: none !important;
+  }
 }

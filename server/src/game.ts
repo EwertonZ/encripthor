@@ -218,10 +218,51 @@ export function startNewRound(room: RoomData, io: Server): void {
 }
 
 /**
+ * Persiste o resultado do jogo no banco de dados.
+ */
+async function persistGameResult(room: RoomData): Promise<void> {
+  try {
+    const { default: prisma } = await import('./prisma');
+
+    const playerRecords = await Promise.all(
+      Array.from(room.players.values()).map(async (p) => {
+        return prisma.player.upsert({
+          where: { id: p.id },
+          update: { nickname: p.nickname, socketId: p.id },
+          create: { id: p.id, nickname: p.nickname, socketId: p.id },
+        });
+      })
+    );
+
+    const game = await prisma.game.create({
+      data: {
+        roomId: room.id,
+        status: 'FINISHED',
+        maxRounds: room.maxRounds,
+        endedAt: new Date(),
+        players: {
+          create: Array.from(room.players.values()).map((p) => ({
+            playerId: p.id,
+            score: room.scores.get(p.id) || 0,
+          })),
+        },
+      },
+    });
+
+    console.log(`💾 Partida ${game.id} salva no banco`);
+  } catch (error) {
+    console.error('❌ Erro ao persistir partida:', error);
+  }
+}
+
+/**
  * Finaliza o jogo e anuncia o vencedor.
  */
 export function handleGameEnd(room: RoomData, io: Server): void {
   room.status = 'round_end';
+
+  // Persistir resultado no banco (assíncrono, não bloqueia)
+  persistGameResult(room);
 
   // Determinar vencedor
   let maxScore = -1;

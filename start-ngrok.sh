@@ -6,7 +6,9 @@
 CONFIG_FILE="/tmp/ngrok-encripthor.yml"
 
 cat > "$CONFIG_FILE" << 'EOF'
-version: "2"
+version: "3"
+agent:
+  authtoken: 2kpgJJHutIpv9Cemois27kBcF6s_pDPEqigebFm2s9yNVktw
 tunnels:
   web:
     proto: http
