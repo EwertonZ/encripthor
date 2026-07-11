@@ -12,6 +12,14 @@ import {
   kickPlayerFromRoom,
   serializeRoom,
 } from './rooms';
+import {
+  selectWordMaster,
+  startWordTimer,
+  handleWordSubmission,
+  handleGuess,
+  handleRoundEnd,
+  handleWordTimeout,
+} from './game';
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
@@ -25,6 +33,9 @@ const io = new Server(httpServer, {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// Rate limiting: último timestamp de palpite por socketId
+const lastGuessTimes = new Map<string, number>();
 
 io.on('connection', (socket) => {
   console.log(`🟢 Jogador conectado: ${socket.id}`);
@@ -99,7 +110,75 @@ io.on('connection', (socket) => {
     }
     const normalizedId = roomId.toUpperCase();
     io.to(normalizedId).emit('game_starting', {});
-    console.log(`🎮 Jogo iniciando na sala ${normalizedId}`);
+
+    // Iniciar primeira rodada
+    const room = getRooms().get(normalizedId);
+    if (!room) return;
+    const masterId = selectWordMaster(room);
+    if (!masterId) {
+      io.to(normalizedId).emit('error', { message: 'Erro ao iniciar jogo' });
+      return;
+    }
+    room.wordMaster = masterId;
+    io.to(normalizedId).emit('word_master_selected', { playerId: masterId });
+    startWordTimer(room, io);
+    console.log(`🎮 Jogo iniciando na sala ${normalizedId} — Word Master: ${masterId}`);
+  });
+
+  socket.on('submit_word', ({ roomId, word }) => {
+    const normalizedId = roomId.toUpperCase();
+    const room = getRooms().get(normalizedId);
+    if (!room) {
+      socket.emit('error', { message: 'Sala não encontrada' });
+      return;
+    }
+    const result = handleWordSubmission(room, io, socket.id, word);
+    if (!result.success) {
+      socket.emit('error', { message: result.error! });
+    }
+  });
+
+  socket.on('guess_word', ({ roomId, guess }) => {
+    const normalizedId = roomId.toUpperCase();
+    const room = getRooms().get(normalizedId);
+    if (!room) {
+      socket.emit('error', { message: 'Sala não encontrada' });
+      return;
+    }
+
+    // Rate limiting: 1 palpite por segundo
+    const now = Date.now();
+    const lastGuess = lastGuessTimes.get(socket.id) || 0;
+    if (now - lastGuess < 1000) {
+      socket.emit('error', { message: 'Aguarde antes de tentar novamente' });
+      return;
+    }
+    lastGuessTimes.set(socket.id, now);
+
+    const result = handleGuess(room, io, socket.id, guess);
+    if ('error' in result) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    socket.emit('guess_result', { playerId: result.playerId, correct: result.correct });
+
+    // Broadcast se alguém acertou
+    if (result.correct) {
+      io.to(normalizedId).emit('guess_correct', { playerId: result.playerId });
+    }
+
+    // Verificar se todos acertaram
+    const allGuessed = Array.from(room.players.values())
+      .filter((p) => p.id !== room.wordMaster)
+      .every((p) => p.hasGuessedCorrectly);
+    if (allGuessed) {
+      // Todos acertaram! Pular para fim de rodada
+      if (room.timers.guessTimer) {
+        clearInterval(room.timers.guessTimer);
+        room.timers.guessTimer = null;
+      }
+      handleRoundEnd(room, io);
+    }
   });
 
   socket.on('kick_player', ({ roomId, playerId }) => {
@@ -134,6 +213,11 @@ io.on('connection', (socket) => {
     // Limpar salas ao desconectar
     for (const [roomId, room] of getRooms()) {
       if (room.players.has(socket.id)) {
+        // Se o Word Master desconectou durante digitação, sortear novo mestre
+        if (socket.id === room.wordMaster && room.status === 'choosing_word') {
+          handleWordTimeout(room, io);
+        }
+
         const result = leaveRoomAndElectLeader(roomId, socket.id);
         io.to(roomId).emit('player_left', {
           playerId: result.playerId,
@@ -142,6 +226,8 @@ io.on('connection', (socket) => {
         console.log(`🔴 ${socket.id} removido da sala ${roomId} por desconexão`);
       }
     }
+    // Limpar rate limiting
+    lastGuessTimes.delete(socket.id);
     console.log(`🔴 Jogador desconectado: ${socket.id}`);
   });
 });

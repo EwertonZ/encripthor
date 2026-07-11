@@ -1,32 +1,30 @@
-export function scrambleWord(word: string, maxAttempts = 10): string[] {
+/**
+ * Embaralha as letras de uma palavra usando Fisher-Yates.
+ * Garante que o resultado seja diferente da palavra original.
+ */
+export function scrambleWord(word: string): string[] {
   if (word.length <= 1) return word.split('');
 
-  const upper = word.toUpperCase();
-  const letters = upper.split('');
+  const letters = word.toUpperCase().split('');
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    for (let i = letters.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [letters[i], letters[j]] = [letters[j], letters[i]];
-    }
-
-    if (letters.join('') !== upper) {
-      return letters;
-    }
+  // Fisher-Yates Shuffle (O(n))
+  for (let i = letters.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [letters[i], letters[j]] = [letters[j], letters[i]];
   }
 
-  // Fallback: troca as duas primeiras letras diferentes
-  for (let i = 1; i < letters.length; i++) {
-    if (letters[0] !== letters[i]) {
-      [letters[0], letters[i]] = [letters[i], letters[0]];
-      return letters;
-    }
+  // Garantir que não ficou igual à original
+  if (letters.join('') === word.toUpperCase()) {
+    return scrambleWord(word); // recursão (raro)
   }
 
   return letters;
 }
 
-export function validateWord(word: string): { valid: boolean; error?: string } {
+/**
+ * Valida se a palavra atende aos requisitos mínimos.
+ */
+export function validateWord(word: string): { valid: true } | { valid: false; error: string } {
   const trimmed = word.trim();
   if (trimmed.length < 3) {
     return { valid: false, error: 'A palavra deve ter pelo menos 3 letras' };
