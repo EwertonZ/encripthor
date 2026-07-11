@@ -1,4 +1,5 @@
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Prisma generate precisa de DATABASE_URL mesmo em build
