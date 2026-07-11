@@ -1,12 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 
-// Conectar via mesma origem da página (Next.js faz proxy para o servidor)
-// Isso permite acesso de outros dispositivos sem precisar de porta separada
+// Conectar na mesma origem da página (Socket.IO está na porta 3000 junto com o proxy)
 function getSocketUrl(): string {
   if (process.env.NEXT_PUBLIC_SOCKET_URL) {
     return process.env.NEXT_PUBLIC_SOCKET_URL;
   }
-  // Conectar no mesmo hostname/porta da página (Next.js faz proxy)
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
@@ -19,8 +17,8 @@ export function getSocket(): Socket {
   if (!socket) {
     socket = io(getSocketUrl(), {
       autoConnect: false,
-      // Apenas polling (Next.js proxy não suporta WebSocket upgrade)
-      transports: ['polling'],
+      // Socket.IO está na mesma porta, WebSocket funciona diretamente
+      transports: ['websocket', 'polling'],
     });
   }
   return socket;
