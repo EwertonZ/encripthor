@@ -18,7 +18,8 @@ export function getSocket(): Socket {
     socket = io(getSocketUrl(), {
       autoConnect: false,
       // Socket.IO está na mesma porta, WebSocket funciona diretamente
-      transports: ['websocket', 'polling'],
+      // Começar com polling HTTP (funciona via proxy), depois tentar upgrade WebSocket
+      transports: ['polling', 'websocket'],
     });
   }
   return socket;
