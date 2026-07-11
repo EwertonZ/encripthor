@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { Room } from '@/types/game';
@@ -12,6 +12,8 @@ export default function TelaInicial() {
   const [roomIdInput, setRoomIdInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const validateNickname = useCallback((): string | null => {
     if (!nickname.trim()) return 'Digite um apelido';
@@ -19,26 +21,56 @@ export default function TelaInicial() {
     return null;
   }, [nickname]);
 
+  // Timeout de segurança: se não receber resposta em 10s, resetar loading
+  const startLoadingTimeout = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setLoading(false);
+      setError('Sem resposta do servidor. Verifique a conexão.');
+    }, 10000);
+  }, []);
+
   useEffect(() => {
     const socket = getSocket();
+
+    const handleConnect = () => {
+      setSocketConnected(true);
+      setError(null);
+    };
+
+    const handleDisconnect = () => {
+      setSocketConnected(false);
+    };
+
+    const handleConnectError = (err: Error) => {
+      setError(`Erro de conexão: ${err.message}`);
+      setLoading(false);
+      setSocketConnected(false);
+    };
 
     const handleError = (data: { message: string }) => {
       setError(data.message);
       setLoading(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
 
     const handleRoomCreated = (data: { roomId: string; room: Room }) => {
       setLoading(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setRoomData({ room: data.room, isLeader: true });
       router.push(`/sala/${data.roomId}`);
     };
 
     const handleRoomJoined = (data: { room: Room; isLeader: boolean }) => {
       setLoading(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setRoomData({ room: data.room, isLeader: data.isLeader });
       router.push(`/sala/${data.room.id}`);
     };
 
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
     socket.on('error', handleError);
     socket.on('room_created', handleRoomCreated);
     socket.on('room_joined', handleRoomJoined);
@@ -46,12 +78,18 @@ export default function TelaInicial() {
     // Conectar se não estiver conectado
     if (!socket.connected) {
       connectSocket();
+    } else {
+      setSocketConnected(true);
     }
 
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
       socket.off('error', handleError);
       socket.off('room_created', handleRoomCreated);
       socket.off('room_joined', handleRoomJoined);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [router]);
 
@@ -61,9 +99,17 @@ export default function TelaInicial() {
       setError(nickError);
       return;
     }
+
+    const socket = getSocket();
+    if (!socket.connected) {
+      setError('Conectando ao servidor...');
+      connectSocket();
+      return;
+    }
+
     setError(null);
     setLoading(true);
-    const socket = getSocket();
+    startLoadingTimeout();
     socket.emit('create_room', { nickname: nickname.trim() });
   };
 
@@ -77,9 +123,17 @@ export default function TelaInicial() {
       setError('Digite um ID de sala válido');
       return;
     }
+
+    const socket = getSocket();
+    if (!socket.connected) {
+      setError('Conectando ao servidor...');
+      connectSocket();
+      return;
+    }
+
     setError(null);
     setLoading(true);
-    const socket = getSocket();
+    startLoadingTimeout();
     socket.emit('join_room', {
       roomId: roomIdInput.trim().toUpperCase(),
       nickname: nickname.trim(),
@@ -101,6 +155,16 @@ export default function TelaInicial() {
 
         {/* Card principal */}
         <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+          {/* Status da conexão */}
+          {!socketConnected && !loading && (
+            <div className="mb-4 p-2 bg-amber-900/30 border border-amber-800/40 rounded-lg">
+              <p className="text-amber-400 text-xs text-center flex items-center justify-center gap-1.5">
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                Conectando ao servidor...
+              </p>
+            </div>
+          )}
+
           {/* Nickname + Criar Sala */}
           <div className="flex gap-3 mb-4">
             <div className="flex-1">
