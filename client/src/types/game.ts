@@ -24,6 +24,7 @@ export interface GameScore {
 export interface ClientEvents {
   create_room: { nickname: string };
   join_room: { roomId: string; nickname: string };
+  get_room_state: { roomId: string };
   leave_room: { roomId: string };
   toggle_ready: { roomId: string };
   start_game: { roomId: string };

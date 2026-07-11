@@ -115,6 +115,21 @@ io.on('connection', (socket) => {
     console.log(`👢 Jogador ${result.targetId} expulso da sala ${normalizedId}`);
   });
 
+  socket.on('get_room_state', ({ roomId }) => {
+    const normalizedId = roomId.toUpperCase();
+    const room = getRooms().get(normalizedId);
+    if (!room || !room.players.has(socket.id)) {
+      socket.emit('error', { message: 'Sala não encontrada' });
+      return;
+    }
+    const isLeader = socket.id === room.leaderId;
+    socket.emit('room_joined', {
+      room: serializeRoom(room),
+      isLeader,
+    });
+    console.log(`🔄 ${socket.id} solicitou estado da sala ${normalizedId}`);
+  });
+
   socket.on('disconnect', () => {
     // Limpar salas ao desconectar
     for (const [roomId, room] of getRooms()) {

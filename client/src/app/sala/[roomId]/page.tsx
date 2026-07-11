@@ -37,12 +37,17 @@ export default function SalaPage() {
     socket.on('room_left', handleRoomLeft);
     socket.on('player_kicked', handlePlayerKicked);
 
+    // Fallback: se o store não tinha os dados, pedir estado atual ao servidor
+    if (!gameState.room) {
+      socket.emit('get_room_state', { roomId });
+    }
+
     return () => {
       socket.off('error', handleError);
       socket.off('room_left', handleRoomLeft);
       socket.off('player_kicked', handlePlayerKicked);
     };
-  }, [socket, router]);
+  }, [socket, router, roomId, gameState.room]);
 
   // Estado de erro
   if (error) {
