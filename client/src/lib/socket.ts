@@ -1,25 +1,14 @@
 import { io, Socket } from 'socket.io-client';
 
-// Conectar na mesma origem da página (Socket.IO está na porta 3000 junto com o proxy)
-function getSocketUrl(): string {
-  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
-    return process.env.NEXT_PUBLIC_SOCKET_URL;
-  }
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  return 'http://localhost:3000';
-}
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
 let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(getSocketUrl(), {
+    socket = io(SOCKET_URL, {
       autoConnect: false,
-      // Socket.IO está na mesma porta, WebSocket funciona diretamente
-      // Começar com polling HTTP (funciona via proxy), depois tentar upgrade WebSocket
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
     });
   }
   return socket;

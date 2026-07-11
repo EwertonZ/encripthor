@@ -1,6 +1,5 @@
 import express from 'express';
 import { createServer } from 'http';
-import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import {
@@ -23,19 +22,17 @@ import {
 } from './game';
 
 const app = express();
-
-// Permitir qualquer origem (jogo local / rede local)
-app.use(cors({ origin: (_, callback) => callback(null, true) }));
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
   },
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Rate limiting: último timestamp de palpite por socketId
 const lastGuessTimes = new Map<string, number>();
@@ -237,48 +234,6 @@ io.on('connection', (socket) => {
 
 app.get('/health', (_, res) => {
   res.json({ status: 'ok' });
-});
-
-// Proxy todas as outras requisições para o Next.js
-const NEXTJS_HOST = process.env.NEXTJS_HOST || 'nextjs';
-const NEXTJS_PORT = parseInt(process.env.NEXTJS_PORT || '3000', 10);
-
-app.use((req, res) => {
-  const options: http.RequestOptions = {
-    hostname: NEXTJS_HOST,
-    port: NEXTJS_PORT,
-    path: req.url,
-    method: req.method,
-    headers: {
-      ...req.headers,
-      host: `${NEXTJS_HOST}:${NEXTJS_PORT}`,
-    },
-  };
-
-  const timeout = setTimeout(() => {
-    proxyReq.destroy();
-    if (!res.headersSent) {
-      res.statusCode = 504;
-      res.end('Gateway Timeout');
-    }
-  }, 10000);
-
-  const proxyReq = http.request(options, (proxyRes) => {
-    clearTimeout(timeout);
-    res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
-    proxyRes.pipe(res, { end: true });
-  });
-
-  proxyReq.on('error', (err) => {
-    clearTimeout(timeout);
-    console.error('❌ Proxy error:', err.message);
-    if (!res.headersSent) {
-      res.statusCode = 502;
-      res.end('Bad Gateway');
-    }
-  });
-
-  req.pipe(proxyReq, { end: true });
 });
 
 httpServer.listen(PORT, () => {
