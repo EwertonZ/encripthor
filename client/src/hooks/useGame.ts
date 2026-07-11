@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import { Player, Room, GameScore } from '@/types/game';
 import { getRoomData } from '@/lib/store';
@@ -11,6 +11,7 @@ export interface GameState {
   myPlayerId: string | null;
   gamePhase: 'waiting' | 'choosing_word' | 'guessing' | 'round_end' | 'game_over';
   isWordMaster: boolean;
+  wordMasterId: string | null;
   scrambledLetters: string[];
   timerRemaining: number | null;
   timerPhase: 'choosing' | 'guessing' | null;
@@ -20,6 +21,7 @@ export interface GameState {
   revealedWord: string | null;
   correctPlayers: string[];
   winnerId: string | null;
+  wordTimeout: boolean;
 }
 
 const initialState: GameState = {
@@ -28,6 +30,7 @@ const initialState: GameState = {
   myPlayerId: null,
   gamePhase: 'waiting',
   isWordMaster: false,
+  wordMasterId: null,
   scrambledLetters: [],
   timerRemaining: null,
   timerPhase: null,
@@ -37,11 +40,34 @@ const initialState: GameState = {
   revealedWord: null,
   correctPlayers: [],
   winnerId: null,
+  wordTimeout: false,
 };
 
-export function useGame(socket: Socket | null) {
+interface UseGameReturn {
+  state: GameState;
+  submitWord: (word: string) => void;
+  makeGuess: (guess: string) => void;
+}
+
+export function useGame(socket: Socket | null): UseGameReturn {
   const [state, setState] = useState<GameState>(initialState);
   const restoredRef = useRef(false);
+
+  const submitWord = useCallback(
+    (word: string) => {
+      if (!socket || !state.room) return;
+      socket.emit('submit_word', { roomId: state.room.id, word });
+    },
+    [socket, state.room]
+  );
+
+  const makeGuess = useCallback(
+    (guess: string) => {
+      if (!socket || !state.room) return;
+      socket.emit('guess_word', { roomId: state.room.id, guess });
+    },
+    [socket, state.room]
+  );
 
   useEffect(() => {
     if (!socket) return;
@@ -135,6 +161,7 @@ export function useGame(socket: Socket | null) {
       setState((prev) => ({
         ...prev,
         gamePhase: 'choosing_word',
+        wordTimeout: false,
       }));
     };
 
@@ -142,7 +169,17 @@ export function useGame(socket: Socket | null) {
       setState((prev) => ({
         ...prev,
         isWordMaster: data.playerId === socket.id,
+        wordMasterId: data.playerId,
         gamePhase: 'choosing_word',
+        wordTimeout: false,
+      }));
+    };
+
+    const onWordTimeout = (data: { playerId: string }) => {
+      setState((prev) => ({
+        ...prev,
+        wordTimeout: prev.isWordMaster || data.playerId === socket.id,
+        isWordMaster: false,
       }));
     };
 
@@ -175,6 +212,22 @@ export function useGame(socket: Socket | null) {
       }
     };
 
+    const onGuessCorrect = (data: { playerId: string }) => {
+      // Atualizar which player guessed correctly in the room
+      setState((prev) => {
+        if (!prev.room) return prev;
+        return {
+          ...prev,
+          room: {
+            ...prev.room,
+            players: prev.room.players.map((p) =>
+              p.id === data.playerId ? { ...p, hasGuessedCorrectly: true } : p
+            ),
+          },
+        };
+      });
+    };
+
     const onRoundEnd = (data: { scores: GameScore[]; word: string; correctPlayers: string[] }) => {
       setState((prev) => ({
         ...prev,
@@ -183,6 +236,7 @@ export function useGame(socket: Socket | null) {
         revealedWord: data.word,
         correctPlayers: data.correctPlayers,
         timerRemaining: null,
+        guessedCorrectly: false,
       }));
     };
 
@@ -193,6 +247,7 @@ export function useGame(socket: Socket | null) {
         scores: data.finalScores,
         winnerId: data.winnerId,
         revealedWord: null,
+        timerRemaining: null,
       }));
     };
 
@@ -207,10 +262,12 @@ export function useGame(socket: Socket | null) {
     socket.on('player_kicked', onPlayerKicked);
     socket.on('game_starting', onGameStarting);
     socket.on('word_master_selected', onWordMasterSelected);
+    socket.on('word_timeout', onWordTimeout);
     socket.on('word_submitted', onWordSubmitted);
     socket.on('word_scrambled', onWordScrambled);
     socket.on('timer_tick', onTimerTick);
     socket.on('guess_result', onGuessResult);
+    socket.on('guess_correct', onGuessCorrect);
     socket.on('round_end', onRoundEnd);
     socket.on('game_end', onGameEnd);
     socket.on('error', onError);
@@ -223,15 +280,17 @@ export function useGame(socket: Socket | null) {
       socket.off('player_kicked', onPlayerKicked);
       socket.off('game_starting', onGameStarting);
       socket.off('word_master_selected', onWordMasterSelected);
+      socket.off('word_timeout', onWordTimeout);
       socket.off('word_submitted', onWordSubmitted);
       socket.off('word_scrambled', onWordScrambled);
       socket.off('timer_tick', onTimerTick);
       socket.off('guess_result', onGuessResult);
+      socket.off('guess_correct', onGuessCorrect);
       socket.off('round_end', onRoundEnd);
       socket.off('game_end', onGameEnd);
       socket.off('error', onError);
     };
   }, [socket]);
 
-  return state;
+  return { state, submitWord, makeGuess };
 }

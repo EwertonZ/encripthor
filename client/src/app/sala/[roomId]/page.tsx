@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getSocket } from '@/lib/socket';
 import { useSocket } from '@/hooks/useSocket';
 import { useGame } from '@/hooks/useGame';
 import SalaEspera from '@/components/SalaEspera';
+import GameBoard from '@/components/GameBoard';
 
 export default function SalaPage() {
   const params = useParams();
@@ -13,7 +13,7 @@ export default function SalaPage() {
   const roomId = params.roomId as string;
   const socketRef = useSocket();
   const socket = socketRef.current;
-  const gameState = useGame(socket);
+  const { state: gameState, submitWord, makeGuess } = useGame(socket);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,13 +92,14 @@ export default function SalaPage() {
     );
   }
 
-  // Jogo ativo (GameBoard será implementado na Spec 05)
+  // Jogo ativo
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0f0f1a]">
-      <div className="text-center">
-        <p className="text-zinc-400 text-lg">🎮 Jogo em andamento...</p>
-        <p className="text-zinc-600 text-sm mt-2">Fase: {gameState.gamePhase}</p>
-      </div>
-    </div>
+    <GameBoard
+      roomId={roomId}
+      socket={socket!}
+      gameState={gameState}
+      submitWord={submitWord}
+      makeGuess={makeGuess}
+    />
   );
 }
