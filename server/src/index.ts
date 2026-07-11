@@ -22,12 +22,14 @@ import {
 } from './game';
 
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
+
+// Aceitar qualquer origem (acesso local, ngrok, rede local)
+app.use(cors({ origin: (_, callback) => callback(null, true) }));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: '*',
     methods: ['GET', 'POST'],
   },
 });

@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: encripthor123
       POSTGRES_DB: encripthor
     ports:
-      - "5433:5432"  # 5433 no host para evitar conflito com PostgreSQL local
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,16 +24,16 @@ services:
     environment:
       DATABASE_URL: postgresql://encripthor:encripthor123@postgres:5432/encripthor
       PORT: 3001
-      CLIENT_URL: http://localhost:3000
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   nextjs:
     build: ./client
     container_name: encripthor-client
     ports:
       - "3000:3000"
+    environment:
+      # ★ Para usar com ngrok, defina a URL pública do Socket.IO:
+      # NEXT_PUBLIC_SOCKET_URL: https://xyz123.ngrok.io
+      # Após definir, execute: docker compose build && docker compose up -d
     depends_on:
       - socket-server
 
