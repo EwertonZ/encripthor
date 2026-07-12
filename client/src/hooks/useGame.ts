@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import { Player, Room, GameScore } from '@/types/game';
 import { getRoomData } from '@/lib/store';
+import { soundManager } from '@/lib/sound';
 
 export interface GameState {
   room: Room | null;
@@ -22,6 +23,7 @@ export interface GameState {
   correctPlayers: string[];
   winnerId: string | null;
   wordTimeout: boolean;
+  wrongFeedbackKey: number; // incrementa para disparar animação de erro no CampoPalavra
 }
 
 const initialState: GameState = {
@@ -41,6 +43,7 @@ const initialState: GameState = {
   correctPlayers: [],
   winnerId: null,
   wordTimeout: false,
+  wrongFeedbackKey: 0,
 };
 
 interface UseGameReturn {
@@ -98,6 +101,7 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onPlayerJoined = (data: { player: Player }) => {
+      soundManager.play('player_join');
       setState((prev) => {
         if (!prev.room) return prev;
         return {
@@ -158,6 +162,7 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onGameStarting = () => {
+      soundManager.play('game_start');
       setState((prev) => ({
         ...prev,
         gamePhase: 'choosing_word',
@@ -176,6 +181,7 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onWordTimeout = (data: { playerId: string }) => {
+      soundManager.play('timeout');
       setState((prev) => ({
         ...prev,
         wordTimeout: prev.isWordMaster || data.playerId === socket.id,
@@ -184,6 +190,7 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onWordSubmitted = (data: { wordLength: number }) => {
+      soundManager.play('word_written');
       setState((prev) => ({
         ...prev,
         wordLength: data.wordLength,
@@ -191,6 +198,7 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onWordScrambled = (data: { scrambledLetters: string[]; masterId: string }) => {
+      soundManager.play('round_start');
       setState((prev) => ({
         ...prev,
         scrambledLetters: data.scrambledLetters,
@@ -207,8 +215,13 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onGuessResult = (data: { playerId: string; correct: boolean }) => {
-      if (data.playerId === socket.id && data.correct) {
+      if (data.playerId !== socket.id) return;
+      if (data.correct) {
+        soundManager.play('correct');
         setState((prev) => ({ ...prev, guessedCorrectly: true }));
+      } else {
+        soundManager.play('wrong');
+        setState((prev) => ({ ...prev, wrongFeedbackKey: prev.wrongFeedbackKey + 1 }));
       }
     };
 
@@ -241,6 +254,7 @@ export function useGame(socket: Socket | null): UseGameReturn {
     };
 
     const onGameEnd = (data: { finalScores: GameScore[]; winnerId: string | null }) => {
+      soundManager.play('victory');
       setState((prev) => ({
         ...prev,
         gamePhase: 'game_over',

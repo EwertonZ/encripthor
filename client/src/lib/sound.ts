@@ -13,7 +13,7 @@ class SoundManager {
     return this.audioContext;
   }
 
-  play(type: 'correct' | 'wrong' | 'tick' | 'timeout' | 'victory' | 'round_start'): void {
+  play(type: 'correct' | 'wrong' | 'tick' | 'timeout' | 'victory' | 'round_start' | 'word_written' | 'player_join' | 'game_start'): void {
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -83,6 +83,35 @@ class SoundManager {
           gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
           oscillator.start(now);
           oscillator.stop(now + 0.15);
+          break;
+
+        case 'word_written':
+          oscillator.frequency.setValueAtTime(330, now);
+          oscillator.frequency.setValueAtTime(440, now + 0.1);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          oscillator.start(now);
+          oscillator.stop(now + 0.3);
+          break;
+
+        case 'player_join':
+          oscillator.frequency.setValueAtTime(600, now);
+          oscillator.frequency.setValueAtTime(800, now + 0.08);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          oscillator.start(now);
+          oscillator.stop(now + 0.25);
+          break;
+
+        case 'game_start':
+          oscillator.frequency.setValueAtTime(262, now);
+          oscillator.frequency.setValueAtTime(330, now + 0.12);
+          oscillator.frequency.setValueAtTime(392, now + 0.24);
+          oscillator.frequency.setValueAtTime(523, now + 0.36);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+          oscillator.start(now);
+          oscillator.stop(now + 0.6);
           break;
       }
     } catch {

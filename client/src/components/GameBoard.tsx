@@ -41,6 +41,7 @@ export default function GameBoard({
     winnerId,
     myPlayerId,
     wordTimeout,
+    wrongFeedbackKey,
   } = gameState;
 
   const handleLeaveRoom = () => {
@@ -90,6 +91,7 @@ export default function GameBoard({
                     onSubmit={submitWord}
                     disabled={wordTimeout}
                     isWordMaster={isWordMaster}
+                    wrongFeedbackKey={wrongFeedbackKey}
                   />
                 </>
               ) : (
@@ -142,6 +144,7 @@ export default function GameBoard({
                     wordLength={wordLength}
                     guessedCorrectly={guessedCorrectly}
                     isWordMaster={isWordMaster}
+                    wrongFeedbackKey={wrongFeedbackKey}
                   />
                 </>
               )}

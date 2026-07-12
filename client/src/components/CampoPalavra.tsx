@@ -9,6 +9,7 @@ interface CampoPalavraProps {
   wordLength?: number | null;
   guessedCorrectly?: boolean;
   isWordMaster: boolean;
+  wrongFeedbackKey?: number; // incrementa para disparar animação de erro
 }
 
 export default function CampoPalavra({
@@ -18,11 +19,14 @@ export default function CampoPalavra({
   wordLength,
   guessedCorrectly = false,
   isWordMaster,
+  wrongFeedbackKey = 0,
 }: CampoPalavraProps) {
   const [value, setValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showShake, setShowShake] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevWrongKey = useRef(wrongFeedbackKey);
 
   useEffect(() => {
     if (!disabled && !isWordMaster && mode === 'guess') {
@@ -37,6 +41,15 @@ export default function CampoPalavra({
     }
   }, [mode, disabled]);
 
+  // Disparar shake quando um palpite errado chegar do servidor
+  useEffect(() => {
+    if (wrongFeedbackKey !== prevWrongKey.current) {
+      prevWrongKey.current = wrongFeedbackKey;
+      setShowShake(true);
+      setTimeout(() => setShowShake(false), 500);
+    }
+  }, [wrongFeedbackKey]);
+
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim().toUpperCase();
     if (!trimmed || trimmed.length < 3) return;
@@ -45,13 +58,20 @@ export default function CampoPalavra({
     onSubmit(trimmed);
     setValue('');
 
-    // Feedback visual de que o palpite foi enviado (shake)
-    setShowShake(true);
-    setTimeout(() => {
-      setShowShake(false);
-      setIsSubmitting(false);
-    }, 500);
-  }, [value, onSubmit]);
+    if (mode === 'write') {
+      // Feedback positivo de que a palavra foi enviada com sucesso
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setIsSubmitting(false);
+      }, 400);
+    } else {
+      // Guess mode: apenas feedback de "enviando", sem shake
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 500);
+    }
+  }, [value, onSubmit, mode]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !disabled && !isSubmitting) {
@@ -84,7 +104,7 @@ export default function CampoPalavra({
 
   return (
     <div className="space-y-3">
-      <div className={`relative ${showShake ? 'shake' : ''}`}>
+      <div className={`relative ${showShake ? 'shake' : ''} ${showSuccess ? 'animate-pulse' : ''}`}>
         <input
           ref={inputRef}
           type="text"
@@ -103,7 +123,9 @@ export default function CampoPalavra({
           className={`w-full px-4 py-3.5 bg-zinc-900/80 border rounded-xl text-white text-lg font-mono tracking-widest uppercase placeholder:text-zinc-600 placeholder:font-sans placeholder:tracking-normal placeholder:normal-case focus:outline-none transition-all duration-200 ${
             showShake
               ? 'border-red-500/50'
-              : 'border-zinc-700 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20'
+              : showSuccess
+                ? 'border-emerald-500/50'
+                : 'border-zinc-700 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20'
           }`}
         />
 
