@@ -1,0 +1,45 @@
+# ☝️ O nome do serviço (encripthor-server) vira a URL: https://encripthor-server.onrender.com
+#    Se você renomear o serviço no dashboard, atualize também CLIENT_URL e NEXT_PUBLIC_SOCKET_URL.
+
+services:
+  # ── Socket.IO Server ──
+  - type: web
+    name: encripthor-server
+    runtime: node
+    repo: https://github.com/EwertonZ/encripthor
+    rootDir: server
+    plan: free
+    buildCommand: npm install && npx prisma generate && npm run build
+    # Roda migration antes de iniciar para garantir que as tabelas existam
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: encripthor-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        value: https://encripthor-client.onrender.com
+
+  # ── Next.js Client ──
+  - type: web
+    name: encripthor-client
+    runtime: node
+    repo: https://github.com/EwertonZ/encripthor
+    rootDir: client
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_SOCKET_URL
+        value: https://encripthor-server.onrender.com
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: encripthor-db
+    plan: free
+    databaseName: encripthor
+    user: encripthor

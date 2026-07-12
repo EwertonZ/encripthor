@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // Render.Web Service roda `npm start` → `next start`
 };
 
 module.exports = nextConfig;
